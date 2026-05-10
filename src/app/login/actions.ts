@@ -1,10 +1,31 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
+function createActionClient() {
+  const cookieStore = cookies()
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet: { name: string; value: string; options?: object }[]) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
+          )
+        },
+      },
+    }
+  )
+}
+
 export async function signIn(email: string, password: string): Promise<{ error: string } | never> {
-  const supabase = createClient()
+  const supabase = createActionClient()
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return { error: error.message }
   redirect('/dashboard')
@@ -16,7 +37,7 @@ export async function signUp(
   name: string,
   role: 'student' | 'parent'
 ): Promise<{ error?: string; message?: string }> {
-  const supabase = createClient()
+  const supabase = createActionClient()
   const { error } = await supabase.auth.signUp({
     email,
     password,
