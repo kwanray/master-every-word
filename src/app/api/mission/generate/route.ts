@@ -97,13 +97,26 @@ export async function POST(request: NextRequest) {
     .slice(0, 5)
 
   // ─── 3. Comprehension questions ──────────────────────────────────────────────
-  const { data: compre } = await supabase
+  // Pick a random passage_group, then fetch all questions from that group
+  const { data: passageGroups } = await supabase
     .from('questions')
-    .select('*')
+    .select('passage_group')
     .eq('type', 'compre_mcq')
-    .limit(3)
+    .not('passage_group', 'is', null)
 
-  const comprehensionQuestions = (compre ?? []) as Question[]
+  const groups = [...new Set((passageGroups ?? []).map(r => r.passage_group).filter(Boolean))]
+  const chosenGroup = groups.length > 0 ? groups[Math.floor(Math.random() * groups.length)] : null
+
+  let comprehensionQuestions: Question[] = []
+  if (chosenGroup) {
+    const { data: compre } = await supabase
+      .from('questions')
+      .select('*')
+      .eq('type', 'compre_mcq')
+      .eq('passage_group', chosenGroup)
+      .limit(3)
+    comprehensionQuestions = (compre ?? []) as Question[]
+  }
 
   const firstPassage = comprehensionQuestions[0] ?? null
 
