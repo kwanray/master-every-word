@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { MissionData, Question, QuestionResult, AIExplanation, MissionPhase } from '@/types'
 import QuizCard from '@/components/QuizCard'
@@ -18,6 +18,14 @@ type UIState =
   | { kind: 'complete'; results: QuestionResult[]; streak: number }
 
 export default function MissionPage() {
+  return (
+    <Suspense>
+      <MissionInner />
+    </Suspense>
+  )
+}
+
+function MissionInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isAiMode = searchParams.get('mode') === 'ai'
