@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { computeNextReview } from '@/lib/spaced-repetition'
-import { AIExplanation, MasteryLevel } from '@/types'
+import { AIExplanation, MasteryLevel, QuestionOption } from '@/types'
 
 interface SaveAttemptBody {
   question_id: string
@@ -35,14 +35,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: attemptError.message }, { status: 500 })
   }
 
-  // Update vocab progress if this question tests a specific word
-  if (vocab_id) {
+  // Resolve vocab_id — explicit link takes priority; for cloze_mcq, infer from
+  // the correct answer option text by looking it up in the vocabulary table
+  let resolvedVocabId = vocab_id ?? null
+
+  if (!resolvedVocabId) {
+    const { data: question } = await supabase
+      .from('questions')
+      .select('type, options, correct_answer')
+      .eq('id', question_id)
+      .single()
+
+    if (question?.type === 'cloze_mcq') {
+      const correctOption = (question.options as QuestionOption[]).find(
+        o => o.key === question.correct_answer
+      )
+      if (correctOption) {
+        const { data: vocabMatch } = await supabase
+          .from('vocabulary')
+          .select('id')
+          .eq('word', correctOption.text.trim())
+          .maybeSingle()
+        if (vocabMatch) resolvedVocabId = vocabMatch.id
+      }
+    }
+  }
+
+  // Update vocab progress if a word was resolved
+  if (resolvedVocabId) {
     // Get or create progress record
     const { data: existing } = await supabase
       .from('user_vocab_progress')
       .select('*')
       .eq('user_id', user.id)
-      .eq('vocab_id', vocab_id)
+      .eq('vocab_id', resolvedVocabId)
       .single()
 
     const currentLevel: MasteryLevel = (existing?.mastery_level as MasteryLevel) ?? 'new'
@@ -57,7 +83,7 @@ export async function POST(request: NextRequest) {
 
     const upsertData = {
       user_id: user.id,
-      vocab_id,
+      vocab_id: resolvedVocabId,
       mastery_level,
       correct_streak,
       mistake_count: is_correct ? currentMistakes : currentMistakes + 1,
