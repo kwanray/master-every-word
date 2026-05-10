@@ -5,19 +5,21 @@ import { cookies } from 'next/headers'
 export async function POST(request: NextRequest) {
   const { email, password } = await request.json()
   const cookieStore = cookies()
-
-  const cookiesToSet: { name: string; value: string; options?: object }[] = []
+  const successResponse = NextResponse.json({ success: true })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll()
+        get(name: string) {
+          return cookieStore.get(name)?.value
         },
-        setAll(cs: { name: string; value: string; options?: object }[]) {
-          cs.forEach(c => cookiesToSet.push(c))
+        set(name: string, value: string, options: object) {
+          successResponse.cookies.set(name, value, options as Parameters<typeof successResponse.cookies.set>[2])
+        },
+        remove(name: string, options: object) {
+          successResponse.cookies.set(name, '', options as Parameters<typeof successResponse.cookies.set>[2])
         },
       },
     }
@@ -29,10 +31,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  const response = NextResponse.json({ success: true })
-  cookiesToSet.forEach(({ name, value, options }) =>
-    response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2])
-  )
-
-  return response
+  return successResponse
 }
