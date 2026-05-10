@@ -35,10 +35,13 @@ export default function LoginPage() {
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         )
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
         if (signInError) {
           setError(signInError.message)
         } else {
+          console.log('[login] session user:', data.session?.user?.id)
+          console.log('[login] document.cookie:', document.cookie)
+          console.log('[login] localStorage keys:', Object.keys(localStorage))
           window.location.href = '/dashboard'
         }
       }

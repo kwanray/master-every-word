@@ -31,6 +31,9 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getSession()
   const user = session?.user ?? null
 
+  const allCookies = request.cookies.getAll()
+  console.log('[middleware] path:', request.nextUrl.pathname, '| cookies:', allCookies.map(c => c.name), '| session:', !!session)
+
   const { pathname } = request.nextUrl
 
   // Redirect unauthenticated users away from protected routes
