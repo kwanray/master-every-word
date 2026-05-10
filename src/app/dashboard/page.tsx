@@ -42,6 +42,9 @@ export default async function DashboardPage() {
   ])
 
   const profile = profileRes.data
+
+  if (profile?.role === 'parent') redirect('/parent')
+
   const todaySession = sessionRes.data
   const masteredCount = masteredRes.count ?? 0
   const weakCount = weakRes.count ?? 0
