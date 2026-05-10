@@ -31,7 +31,11 @@ export default function LoginPage() {
         }
       } else {
         const result = await signIn(email, password)
-        if (result?.error) setError(result.error)
+        if (result?.error) {
+          setError(result.error)
+        } else {
+          window.location.href = '/dashboard'
+        }
       }
     } catch {
       setError('发生错误，请重试。')

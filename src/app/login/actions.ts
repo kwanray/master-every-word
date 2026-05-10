@@ -2,7 +2,6 @@
 
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 
 function createActionClient() {
   const cookieStore = cookies()
@@ -28,7 +27,7 @@ export async function signIn(email: string, password: string): Promise<{ error?:
   const supabase = createActionClient()
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return { error: error.message }
-  redirect('/dashboard')
+  return {}
 }
 
 export async function signUp(
