@@ -1,8 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk'
+import Groq from 'groq-sdk'
 import { AIExplanation, QuestionOption } from '@/types'
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
 })
 
 export async function generateExplanation(params: {
@@ -48,19 +48,21 @@ Return a JSON object (no markdown, just JSON):
   "similar_example": "One short example sentence using the correct word/concept"
 }`
 
-  const message = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+  const completion = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
     max_tokens: 512,
-    messages: [{ role: 'user', content: userPrompt }],
-    system: systemPrompt,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
   })
 
-  const content = message.content[0]
-  if (content.type !== 'text') {
+  const text = completion.choices[0]?.message?.content
+  if (!text) {
     throw new Error('Unexpected response type from AI')
   }
 
   // Strip markdown code fences if present
-  const jsonText = content.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+  const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
   return JSON.parse(jsonText) as AIExplanation
 }
