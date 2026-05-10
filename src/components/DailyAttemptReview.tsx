@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { QuestionOption } from '@/types'
+import { QuestionOption, AIExplanation } from '@/types'
 
 interface AttemptRecord {
   id: string
   session_date: string
   is_correct: boolean
   selected_answer: string | null
+  ai_explanation: AIExplanation | null
   question: {
     question_text: string
     options: QuestionOption[]
@@ -163,12 +164,41 @@ export default function DailyAttemptReview({ attempts, dates }: Props) {
                   })}
                 </div>
 
-                {/* Wrong answer summary */}
+                {/* Wrong answer summary + AI explanation */}
                 {!attempt.is_correct && selectedOption && correctOption && (
-                  <p className="text-xs text-gray-400 mt-2">
-                    你选了 <span className="text-red-500 font-medium">{attempt.selected_answer}. {selectedOption.text}</span>
-                    ，正确答案是 <span className="text-emerald-600 font-medium">{q.correct_answer}. {correctOption.text}</span>
-                  </p>
+                  <div className="mt-3 flex flex-col gap-2">
+                    <p className="text-xs text-gray-400">
+                      你选了 <span className="text-red-500 font-medium">{attempt.selected_answer}. {selectedOption.text}</span>
+                      ，正确答案是 <span className="text-emerald-600 font-medium">{q.correct_answer}. {correctOption.text}</span>
+                    </p>
+
+                    {attempt.ai_explanation && (
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 flex flex-col gap-2">
+                        <div>
+                          <p className="text-xs font-semibold text-amber-700 mb-0.5">为什么答错了？</p>
+                          <p className="text-xs text-amber-800 chinese-text">{attempt.ai_explanation.why_wrong_zh}</p>
+                          <p className="text-xs text-amber-700 mt-0.5">{attempt.ai_explanation.why_wrong_en}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-emerald-700 mb-0.5">正确答案的原因</p>
+                          <p className="text-xs text-emerald-800 chinese-text">{attempt.ai_explanation.why_correct_zh}</p>
+                          <p className="text-xs text-emerald-700 mt-0.5">{attempt.ai_explanation.why_correct_en}</p>
+                        </div>
+                        {attempt.ai_explanation.memory_hook && (
+                          <div className="border-t border-amber-100 pt-2">
+                            <p className="text-xs font-semibold text-gray-500 mb-0.5">💡 记忆技巧</p>
+                            <p className="text-xs text-gray-600">{attempt.ai_explanation.memory_hook}</p>
+                          </div>
+                        )}
+                        {attempt.ai_explanation.similar_example && (
+                          <div>
+                            <p className="text-xs font-semibold text-gray-500 mb-0.5">📝 例句</p>
+                            <p className="text-xs text-gray-600 chinese-text">{attempt.ai_explanation.similar_example}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )

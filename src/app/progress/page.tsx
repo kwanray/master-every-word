@@ -28,6 +28,7 @@ export default async function ProgressPage() {
         session_date,
         is_correct,
         selected_answer,
+        ai_explanation,
         questions (
           question_text,
           options,
@@ -51,6 +52,7 @@ export default async function ProgressPage() {
     session_date: a.session_date as string,
     is_correct: a.is_correct as boolean,
     selected_answer: a.selected_answer as string | null,
+    ai_explanation: a.ai_explanation ?? null,
     question: a.questions ?? null,
   }))
   const attemptDates = Array.from(new Set(attempts.map(a => a.session_date))).sort((x, y) => y.localeCompare(x))
