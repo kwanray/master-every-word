@@ -45,6 +45,25 @@ export default async function VocabPage() {
           </p>
         </div>
 
+        {/* How it works */}
+        <div className="bg-brand-50 border border-brand-100 rounded-2xl p-4 flex flex-col gap-2.5">
+          <p className="text-xs font-semibold text-brand-700 mb-0.5">如何提升词语等级？</p>
+          {[
+            { icon: '⏰', label: '今天待复习', desc: '今天需要复习，会出现在下一次每日任务的词语复习阶段' },
+            { icon: '📌', label: '需要加强', desc: '答错过，还没到复习时间，继续努力！' },
+            { icon: '📈', label: '进步中', desc: '答对了，复习时间已安排，保持下去' },
+            { icon: '🏆', label: '已掌握', desc: '连续答对 3 次即可达到此等级' },
+          ].map(item => (
+            <div key={item.label} className="flex items-start gap-2.5">
+              <span className="text-base flex-shrink-0 mt-0.5">{item.icon}</span>
+              <div>
+                <span className="text-xs font-semibold text-gray-700 chinese-text">{item.label}</span>
+                <span className="text-xs text-gray-500 chinese-text"> — {item.desc}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {progress.length === 0 ? (
           <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
             <div className="text-4xl mb-3">📚</div>
