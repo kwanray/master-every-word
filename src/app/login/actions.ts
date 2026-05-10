@@ -24,7 +24,7 @@ function createActionClient() {
   )
 }
 
-export async function signIn(email: string, password: string): Promise<{ error: string } | never> {
+export async function signIn(email: string, password: string): Promise<{ error?: string }> {
   const supabase = createActionClient()
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return { error: error.message }

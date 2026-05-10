@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { signUp } from './actions'
+import { signIn, signUp } from './actions'
 
 type Mode = 'signin' | 'signup'
 
@@ -30,17 +30,8 @@ export default function LoginPage() {
           setMode('signin')
         }
       } else {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        })
-        if (res.ok) {
-          window.location.href = '/dashboard'
-        } else {
-          const data = await res.json()
-          setError(data.error)
-        }
+        const result = await signIn(email, password)
+        if (result?.error) setError(result.error)
       }
     } catch {
       setError('发生错误，请重试。')
