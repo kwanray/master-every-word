@@ -14,7 +14,7 @@ export default async function ParentPage() {
     .from('profiles')
     .select('name, role, linked_student_id')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   // Determine which user_id to show data for
   const targetUserId = profile?.role === 'parent' && profile?.linked_student_id
@@ -39,7 +39,7 @@ export default async function ParentPage() {
       .from('profiles')
       .select('name')
       .eq('id', targetUserId)
-      .single(),
+      .maybeSingle(),
   ])
 
   const weakWords = (vocabRes.data ?? []) as UserVocabProgress[]

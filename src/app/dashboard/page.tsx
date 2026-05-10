@@ -15,7 +15,7 @@ export default async function DashboardPage() {
 
   // Fetch data in parallel
   const [profileRes, sessionRes, masteredRes, weakRes, streakRes] = await Promise.all([
-    supabase.from('profiles').select('name, role').eq('id', user.id).single(),
+    supabase.from('profiles').select('name, role').eq('id', user.id).maybeSingle(),
     supabase
       .from('daily_sessions')
       .select('completed, total_questions, correct_questions')
