@@ -1,13 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { signIn, signUp } from './actions'
 
 type Mode = 'signin' | 'signup'
 
 export default function LoginPage() {
-  const supabase = createClient()
-
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -25,25 +23,18 @@ export default function LoginPage() {
 
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { name, role },
-            emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-          },
-        })
-        if (error) throw error
-        setMessage('账户已创建！请检查邮箱确认注册，或直接登录。')
-        setMode('signin')
+        const result = await signUp(email, password, name, role)
+        if (result.error) setError(result.error)
+        else if (result.message) {
+          setMessage(result.message)
+          setMode('signin')
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
-        window.location.href = '/dashboard'
+        const result = await signIn(email, password)
+        if (result?.error) setError(result.error)
       }
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message)
-      else setError('发生错误，请重试。')
+    } catch {
+      setError('发生错误，请重试。')
     } finally {
       setLoading(false)
     }
