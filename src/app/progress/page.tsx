@@ -53,7 +53,7 @@ export default async function ProgressPage() {
     selected_answer: a.selected_answer as string | null,
     question: a.questions ?? null,
   }))
-  const attemptDates = [...new Set(attempts.map(a => a.session_date))].sort((x, y) => y.localeCompare(x))
+  const attemptDates = Array.from(new Set(attempts.map(a => a.session_date))).sort((x, y) => y.localeCompare(x))
 
   const masteryBreakdown = {
     new: vocabProgress.filter(v => v.mastery_level === 'new').length,
