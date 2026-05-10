@@ -191,8 +191,8 @@ Rules:
 
   // ─── Persist to DB via service client ────────────────────────────────────────
 
-  // 1. Upsert vocab words
-  const vocabUpserts = aiMission.vocab_questions.map(vq => ({
+  // 1. Insert vocab words (plain insert — no unique constraint on word exists)
+  const vocabInserts = aiMission.vocab_questions.map(vq => ({
     word: vq.word,
     pinyin: vq.pinyin,
     meaning_en: vq.meaning_en,
@@ -202,10 +202,14 @@ Rules:
     tags: [topic],
   }))
 
-  const { data: insertedVocab } = await serviceClient
+  const { data: insertedVocab, error: vocabError } = await serviceClient
     .from('vocabulary')
-    .upsert(vocabUpserts, { onConflict: 'word', ignoreDuplicates: false })
+    .insert(vocabInserts)
     .select('id, word')
+
+  if (vocabError) {
+    return NextResponse.json({ error: `Vocab insert failed: ${vocabError.message} [${vocabError.code}]` }, { status: 500 })
+  }
 
   const vocabIdMap: Record<string, string> = {}
   for (const v of insertedVocab ?? []) {
@@ -224,10 +228,14 @@ Rules:
     difficulty: 2,
   }))
 
-  const { data: insertedVocabQ } = await serviceClient
+  const { data: insertedVocabQ, error: vocabQError } = await serviceClient
     .from('questions')
     .insert(vocabQInserts)
     .select('*')
+
+  if (vocabQError) {
+    return NextResponse.json({ error: `Vocab questions insert failed: ${vocabQError.message} [${vocabQError.code}]` }, { status: 500 })
+  }
 
   // 3. Insert cloze questions
   const clozeQInserts = aiMission.cloze_questions.map(cq => ({
@@ -240,10 +248,14 @@ Rules:
     difficulty: 2,
   }))
 
-  const { data: insertedClozeQ } = await serviceClient
+  const { data: insertedClozeQ, error: clozeQError } = await serviceClient
     .from('questions')
     .insert(clozeQInserts)
     .select('*')
+
+  if (clozeQError) {
+    return NextResponse.json({ error: `Cloze questions insert failed: ${clozeQError.message} [${clozeQError.code}]` }, { status: 500 })
+  }
 
   // 4. Insert comprehension questions (all share the same passage + group)
   const passageGroup = `ai_${Date.now()}`
@@ -260,10 +272,14 @@ Rules:
     difficulty: 2,
   }))
 
-  const { data: insertedCompreQ } = await serviceClient
+  const { data: insertedCompreQ, error: compreQError } = await serviceClient
     .from('questions')
     .insert(compreQInserts)
     .select('*')
+
+  if (compreQError) {
+    return NextResponse.json({ error: `Comprehension questions insert failed: ${compreQError.message} [${compreQError.code}]` }, { status: 500 })
+  }
 
   // ─── Build MissionData ────────────────────────────────────────────────────────
   const vocabQuestions = (insertedVocabQ ?? []) as Question[]
