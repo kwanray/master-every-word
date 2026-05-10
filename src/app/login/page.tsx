@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn, signUp } from './actions'
+import { createBrowserClient } from '@supabase/ssr'
+import { signUp } from './actions'
 
 type Mode = 'signin' | 'signup'
 
@@ -30,9 +31,13 @@ export default function LoginPage() {
           setMode('signin')
         }
       } else {
-        const result = await signIn(email, password)
-        if (result?.error) {
-          setError(result.error)
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        if (signInError) {
+          setError(signInError.message)
         } else {
           window.location.href = '/dashboard'
         }
