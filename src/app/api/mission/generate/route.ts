@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     .eq('type', 'compre_mcq')
     .not('passage_group', 'is', null)
 
-  const groups = [...new Set((passageGroups ?? []).map(r => r.passage_group).filter(Boolean))]
+  const groups = Array.from(new Set((passageGroups ?? []).map(r => r.passage_group).filter(Boolean)))
   const chosenGroup = groups.length > 0 ? groups[Math.floor(Math.random() * groups.length)] : null
 
   let comprehensionQuestions: Question[] = []
