@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import NavBar from '@/components/NavBar'
 import ProgressBar from '@/components/ProgressBar'
+import DailyAttemptReview from '@/components/DailyAttemptReview'
 
 export default async function ProgressPage() {
   const supabase = createClient()
@@ -9,7 +10,7 @@ export default async function ProgressPage() {
 
   if (!user) redirect('/login')
 
-  const [sessionsRes, vocabRes] = await Promise.all([
+  const [sessionsRes, vocabRes, attemptsRes] = await Promise.all([
     supabase
       .from('daily_sessions')
       .select('*')
@@ -20,10 +21,39 @@ export default async function ProgressPage() {
       .from('user_vocab_progress')
       .select('mastery_level')
       .eq('user_id', user.id),
+    supabase
+      .from('attempts')
+      .select(`
+        id,
+        session_date,
+        is_correct,
+        selected_answer,
+        questions (
+          question_text,
+          options,
+          correct_answer,
+          type,
+          passage_title
+        )
+      `)
+      .eq('user_id', user.id)
+      .order('session_date', { ascending: false })
+      .limit(200),
   ])
 
   const sessions = sessionsRes.data ?? []
   const vocabProgress = vocabRes.data ?? []
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawAttempts = (attemptsRes.data ?? []) as any[]
+  const attempts = rawAttempts.map(a => ({
+    id: a.id as string,
+    session_date: a.session_date as string,
+    is_correct: a.is_correct as boolean,
+    selected_answer: a.selected_answer as string | null,
+    question: a.questions ?? null,
+  }))
+  const attemptDates = [...new Set(attempts.map(a => a.session_date))].sort((x, y) => y.localeCompare(x))
 
   const masteryBreakdown = {
     new: vocabProgress.filter(v => v.mastery_level === 'new').length,
@@ -153,6 +183,9 @@ export default async function ProgressPage() {
             ))}
           </div>
         </div>
+
+        {/* Daily attempt review */}
+        <DailyAttemptReview attempts={attempts} dates={attemptDates} />
 
         {/* Session history */}
         {sessions.length > 0 && (
