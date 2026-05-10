@@ -34,6 +34,7 @@ function MissionInner() {
   const [results, setResults] = useState<QuestionResult[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [aiTopic, setAiTopic] = useState<string | null>(null)
+  const [showPassage, setShowPassage] = useState(false)
 
   // Load mission on mount
   useEffect(() => {
@@ -380,6 +381,29 @@ function MissionInner() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-4">
+        {/* Collapsible passage for comprehension phase */}
+        {phase === 'comprehension' && mission.comprehension_passage && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <button
+              onClick={() => setShowPassage(p => !p)}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <span>📄</span>
+                <span className="chinese-text">{mission.comprehension_title ?? '阅读文章'}</span>
+              </span>
+              <span className="text-gray-400 text-xs">{showPassage ? '收起 ▲' : '查看文章 ▼'}</span>
+            </button>
+            {showPassage && (
+              <div className="px-4 pb-4 border-t border-gray-50">
+                <p className="text-sm text-gray-700 chinese-text leading-loose whitespace-pre-wrap pt-3">
+                  {mission.comprehension_passage}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         <QuizCard
           question={question}
           selectedAnswer={selectedAnswer}
