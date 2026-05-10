@@ -32,6 +32,7 @@ export default function LoginPage() {
           password,
           options: {
             data: { name, role },
+            emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
           },
         })
         if (error) throw error
