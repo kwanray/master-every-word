@@ -145,6 +145,28 @@ export default async function DashboardPage() {
           )}
         </div>
 
+        {/* AI Practice card */}
+        <div className="bg-white rounded-2xl p-5 border border-violet-100 shadow-sm">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="text-2xl">🤖</div>
+            <div>
+              <h2 className="font-bold text-gray-800 text-base">AI 生成练习</h2>
+              <p className="text-gray-400 text-sm mt-0.5">由 AI 随机选题，每次不同</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5 text-sm text-gray-500 mb-4 pl-1">
+            <span>✦ 与 O-Level 考试相似的词语题</span>
+            <span>✦ 情境填词（完型填空）</span>
+            <span>✦ AI 撰写的阅读理解文章</span>
+          </div>
+          <Link
+            href="/mission?mode=ai"
+            className="block w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-4 rounded-xl text-center transition-colors"
+          >
+            开始 AI 练习 →
+          </Link>
+        </div>
+
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
           <DashboardCard

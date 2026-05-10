@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { MissionData, Question, QuestionResult, AIExplanation, MissionPhase } from '@/types'
 import QuizCard from '@/components/QuizCard'
 import ExplanationModal from '@/components/ExplanationModal'
@@ -19,28 +19,35 @@ type UIState =
 
 export default function MissionPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isAiMode = searchParams.get('mode') === 'ai'
+
   const [state, setState] = useState<UIState>({ kind: 'loading' })
   const [results, setResults] = useState<QuestionResult[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [aiTopic, setAiTopic] = useState<string | null>(null)
 
   // Load mission on mount
   useEffect(() => {
     async function loadMission() {
       try {
-        const res = await fetch('/api/mission/generate', { method: 'POST' })
+        const endpoint = isAiMode ? '/api/mission/generate-ai' : '/api/mission/generate'
+        const res = await fetch(endpoint, { method: 'POST' })
         if (!res.ok) {
           const body = await res.json().catch(() => ({}))
           throw new Error(`Failed to generate mission (${res.status}): ${body.error ?? 'unknown'}`)
         }
-        const mission: MissionData = await res.json()
+        const data = await res.json()
+        const mission: MissionData = data
         setSessionId(mission.session_id)
+        if (data.ai_topic) setAiTopic(data.ai_topic)
         setState({ kind: 'intro', mission })
       } catch (err) {
         setState({ kind: 'error', message: err instanceof Error ? err.message : 'Unknown error' })
       }
     }
     loadMission()
-  }, [])
+  }, [isAiMode])
 
   const getQuestionsForPhase = useCallback(
     (mission: MissionData, phase: MissionPhase): Question[] => {
@@ -212,8 +219,13 @@ export default function MissionPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-4xl mb-4 animate-bounce">📚</div>
-          <p className="text-gray-500 chinese-text">正在准备今天的任务…</p>
+          <div className="text-4xl mb-4 animate-bounce">{isAiMode ? '🤖' : '📚'}</div>
+          <p className="text-gray-500 chinese-text">
+            {isAiMode ? 'AI 正在生成专属练习…' : '正在准备今天的任务…'}
+          </p>
+          {isAiMode && (
+            <p className="text-gray-400 text-xs mt-2">约需 10 秒</p>
+          )}
         </div>
       </div>
     )
@@ -244,11 +256,18 @@ export default function MissionPage() {
       mission.mcq_questions.length +
       mission.comprehension_questions.length
     return (
-      <div className="min-h-screen bg-gradient-to-b from-brand-600 to-brand-700 flex flex-col items-center justify-center px-4">
+      <div className={`min-h-screen flex flex-col items-center justify-center px-4 bg-gradient-to-b ${isAiMode ? 'from-violet-600 to-violet-700' : 'from-brand-600 to-brand-700'}`}>
         <div className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl flex flex-col gap-5">
           <div className="text-center">
-            <div className="text-5xl mb-3">🎯</div>
-            <h1 className="text-2xl font-bold text-gray-800 chinese-text">今天的任务</h1>
+            <div className="text-5xl mb-3">{isAiMode ? '🤖' : '🎯'}</div>
+            {isAiMode && aiTopic && (
+              <div className="inline-block bg-violet-100 text-violet-700 text-xs font-semibold px-3 py-1 rounded-full mb-2">
+                AI 生成 · {aiTopic}
+              </div>
+            )}
+            <h1 className="text-2xl font-bold text-gray-800 chinese-text">
+              {isAiMode ? 'AI 练习' : '今天的任务'}
+            </h1>
             <p className="text-gray-400 text-sm mt-1">共 {total} 题，约 20 分钟</p>
           </div>
 
