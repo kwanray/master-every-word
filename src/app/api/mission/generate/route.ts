@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { MissionData, Question } from '@/types'
 
 export async function POST(request: NextRequest) {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: `Unauthorized: ${authError?.message ?? 'no user'}` }, { status: 401 })
   }
+
+  // Ensure profile row exists (handles case where trigger didn't fire on sign-up)
+  const serviceClient = createServiceClient()
+  await serviceClient.from('profiles').upsert(
+    {
+      id: user.id,
+      name: (user.user_metadata?.name as string | undefined) ?? user.email?.split('@')[0] ?? 'Student',
+      role: (user.user_metadata?.role as string | undefined) ?? 'student',
+    },
+    { onConflict: 'id', ignoreDuplicates: true }
+  )
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -23,7 +34,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (sessionError) {
-    return NextResponse.json({ error: sessionError.message }, { status: 500 })
+    return NextResponse.json({ error: `Session upsert: ${sessionError.message} [${sessionError.code}]` }, { status: 500 })
   }
 
   // ─── 1. Vocab review questions ───────────────────────────────────────────────

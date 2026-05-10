@@ -28,7 +28,10 @@ export default function MissionPage() {
     async function loadMission() {
       try {
         const res = await fetch('/api/mission/generate', { method: 'POST' })
-        if (!res.ok) throw new Error('Failed to generate mission')
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(`Failed to generate mission (${res.status}): ${body.error ?? 'unknown'}`)
+        }
         const mission: MissionData = await res.json()
         setSessionId(mission.session_id)
         setState({ kind: 'intro', mission })
