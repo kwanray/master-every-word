@@ -94,7 +94,7 @@ export default function VocabFilteredList({ groups, total }: Props) {
           </div>
           <p className="text-gray-400 text-sm chinese-text">
             {active === 'all'
-              ? '完成每日任务后，词语会出现在这里'
+              ? '完成每日任务后，练习过的词语会出现在这里'
               : active === 'due'
               ? '今天没有待复习的词语，继续保持！'
               : active === 'mastered'
