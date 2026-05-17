@@ -42,7 +42,7 @@ export default async function DashboardPage() {
       .limit(30),
     supabase
       .from('parent_link_requests')
-      .select('id, profiles!parent_id(name)')
+      .select('id, parent_id')
       .eq('student_id', user.id),
   ])
 
@@ -50,10 +50,17 @@ export default async function DashboardPage() {
 
   if (profile?.role === 'parent') redirect('/parent')
 
-  const linkRequests = (linkRequestsRes.data ?? []) as {
-    id: string
-    profiles: { name: string } | null
-  }[]
+  // Fetch parent names for any pending link requests
+  const rawRequests = linkRequestsRes.data ?? []
+  const parentIds = rawRequests.map(r => r.parent_id)
+  const parentProfiles = parentIds.length > 0
+    ? (await supabase.from('profiles').select('id, name').in('id', parentIds)).data ?? []
+    : []
+
+  const linkRequests = rawRequests.map(r => ({
+    id: r.id as string,
+    parentName: parentProfiles.find(p => p.id === r.parent_id)?.name ?? '家长',
+  }))
 
   const todaySession = sessionRes.data
   const masteredCount = masteredRes.count ?? 0
@@ -94,7 +101,7 @@ export default async function DashboardPage() {
           <LinkRequestNotification
             key={req.id}
             requestId={req.id}
-            parentName={req.profiles?.name ?? '家长'}
+            parentName={req.parentName}
           />
         ))}
 

@@ -31,9 +31,19 @@ export default async function ParentPage() {
   if (isParent && !hasLinkedStudent) {
     const { data: pendingRequest } = await supabase
       .from('parent_link_requests')
-      .select('id, profiles!student_id(name)')
+      .select('id, student_id')
       .eq('parent_id', user.id)
       .maybeSingle()
+
+    let pendingStudentName = '学生'
+    if (pendingRequest?.student_id) {
+      const { data: sp } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', pendingRequest.student_id)
+        .maybeSingle()
+      pendingStudentName = sp?.name ?? '学生'
+    }
 
     return (
       <div className="min-h-screen bg-gray-50 pb-24">
@@ -51,9 +61,7 @@ export default async function ParentPage() {
                 <h2 className="text-lg font-bold text-gray-800 chinese-text">等待学生确认</h2>
                 <p className="text-gray-400 text-sm mt-2 chinese-text">
                   已向{' '}
-                  <span className="font-medium text-gray-600">
-                    {(pendingRequest.profiles as { name: string } | null)?.name ?? '学生'}
-                  </span>{' '}
+                  <span className="font-medium text-gray-600">{pendingStudentName}</span>{' '}
                   发送关联请求，请让孩子登录后在主页接受请求。
                 </p>
               </div>
