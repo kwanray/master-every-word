@@ -105,6 +105,21 @@ export default async function DashboardPage() {
           />
         ))}
 
+        {/* Admin shortcut */}
+        {profile?.role === 'admin' && (
+          <a
+            href="/admin"
+            className="flex items-center gap-3 bg-violet-50 border border-violet-100 rounded-2xl px-5 py-4 hover:bg-violet-100 transition-colors"
+          >
+            <span className="text-2xl">⚙️</span>
+            <div>
+              <p className="text-sm font-semibold text-violet-800">管理面板</p>
+              <p className="text-xs text-violet-500 mt-0.5">查看用户、管理家长与学生关联</p>
+            </div>
+            <span className="ml-auto text-violet-400 text-lg">→</span>
+          </a>
+        )}
+
         {/* Greeting */}
         <div>
           <h1 className="text-2xl font-bold text-gray-800 chinese-text">
