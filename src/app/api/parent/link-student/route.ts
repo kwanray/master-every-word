@@ -17,66 +17,56 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '只有家长账户可以关联学生' }, { status: 403 })
   }
 
-  const { email } = await request.json()
-  if (!email?.trim()) {
-    return NextResponse.json({ error: '请输入学生的邮件地址' }, { status: 400 })
+  const { code } = await request.json()
+  if (!code?.trim()) {
+    return NextResponse.json({ error: '请输入邀请码' }, { status: 400 })
   }
 
   const serviceClient = createServiceClient()
 
-  // Find user by email via admin API
-  let studentAuthId: string | null = null
-  let page = 1
-  const perPage = 1000
+  // Find a valid, unused, unexpired invite code
+  const { data: invite, error: inviteError } = await serviceClient
+    .from('parent_invite_codes')
+    .select('id, student_id')
+    .eq('code', code.toUpperCase().trim())
+    .is('used_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle()
 
-  while (!studentAuthId) {
-    const { data: userList, error } = await serviceClient.auth.admin.listUsers({ page, perPage })
-    if (error || !userList) {
-      return NextResponse.json({ error: '查找失败，请重试' }, { status: 500 })
-    }
-    const match = userList.users.find(
-      (u: { id: string; email?: string }) => u.email?.toLowerCase() === email.toLowerCase().trim()
-    )
-    if (match) {
-      studentAuthId = match.id
-      break
-    }
-    if (userList.users.length < perPage) break
-    page++
+  if (inviteError || !invite) {
+    return NextResponse.json({ error: '邀请码无效或已过期' }, { status: 400 })
   }
 
-  if (!studentAuthId) {
-    return NextResponse.json({ error: '找不到该邮件地址的账户' }, { status: 404 })
-  }
+  const { student_id: studentId } = invite
 
-  if (studentAuthId === user.id) {
+  if (studentId === user.id) {
     return NextResponse.json({ error: '不能关联自己的账户' }, { status: 400 })
   }
 
+  // Get student name for the response
   const { data: studentProfile } = await serviceClient
     .from('profiles')
-    .select('name, role')
-    .eq('id', studentAuthId)
+    .select('name')
+    .eq('id', studentId)
     .maybeSingle()
 
-  if (!studentProfile) {
-    return NextResponse.json({ error: '找不到该用户的资料' }, { status: 404 })
+  // Link parent to student and mark the code as used
+  const [linkResult] = await Promise.all([
+    supabase
+      .from('profiles')
+      .update({ linked_student_id: studentId })
+      .eq('id', user.id),
+    serviceClient
+      .from('parent_invite_codes')
+      .update({ used_at: new Date().toISOString() })
+      .eq('id', invite.id),
+  ])
+
+  if (linkResult.error) {
+    return NextResponse.json({ error: linkResult.error.message }, { status: 500 })
   }
 
-  if (studentProfile.role !== 'student') {
-    return NextResponse.json({ error: '该账户不是学生账户，请输入学生的邮件地址' }, { status: 400 })
-  }
-
-  const { error: updateError } = await supabase
-    .from('profiles')
-    .update({ linked_student_id: studentAuthId })
-    .eq('id', user.id)
-
-  if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 })
-  }
-
-  return NextResponse.json({ ok: true, student_name: studentProfile.name })
+  return NextResponse.json({ ok: true, student_name: studentProfile?.name ?? '学生' })
 }
 
 export async function DELETE() {
