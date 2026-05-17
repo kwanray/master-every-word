@@ -23,6 +23,17 @@ export default function AdminTable({ parents, students }: Props) {
 
   const studentMap = Object.fromEntries(students.map(s => [s.id, s]))
 
+  const changeRole = async (userId: string, newRole: string) => {
+    setLoadingId(userId)
+    await fetch('/api/admin/role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, new_role: newRole }),
+    })
+    setLoadingId(null)
+    router.refresh()
+  }
+
   const link = async (parentId: string) => {
     const studentId = selectedStudent[parentId]
     if (!studentId) return
@@ -56,6 +67,22 @@ export default function AdminTable({ parents, students }: Props) {
     }
   }
 
+  const RoleSelect = ({ user }: { user: AdminUser }) => (
+    <select
+      value={user.role}
+      disabled={loadingId === user.id}
+      onChange={e => {
+        if (window.confirm(`将 ${user.name ?? user.email} 的账户类型改为"${e.target.value === 'parent' ? '家长' : '学生'}"？`)) {
+          changeRole(user.id, e.target.value)
+        }
+      }}
+      className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-400 disabled:opacity-40"
+    >
+      <option value="student">学生</option>
+      <option value="parent">家长</option>
+    </select>
+  )
+
   return (
     <div className="flex flex-col gap-10">
 
@@ -70,13 +97,14 @@ export default function AdminTable({ parents, students }: Props) {
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">姓名</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">邮箱</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">账户类型</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">关联学生</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {parents.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400">暂无家长账户</td></tr>
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">暂无家长账户</td></tr>
               )}
               {parents.map(parent => {
                 const linked = parent.linked_student_id ? studentMap[parent.linked_student_id] : null
@@ -87,6 +115,9 @@ export default function AdminTable({ parents, students }: Props) {
                       {parent.name ?? <span className="text-gray-400 italic">未设置</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-500">{parent.email}</td>
+                    <td className="px-4 py-3">
+                      <RoleSelect user={parent} />
+                    </td>
                     <td className="px-4 py-3">
                       {linked ? (
                         <span className="inline-flex items-center gap-1.5 bg-brand-50 text-brand-700 text-xs font-medium px-2.5 py-1 rounded-full">
@@ -149,12 +180,13 @@ export default function AdminTable({ parents, students }: Props) {
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">姓名</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">邮箱</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">账户类型</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">关联家长</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {students.length === 0 && (
-                <tr><td colSpan={3} className="px-4 py-6 text-center text-gray-400">暂无学生账户</td></tr>
+                <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400">暂无学生账户</td></tr>
               )}
               {students.map(student => {
                 const linkedParents = studentToParent[student.id] ?? []
@@ -164,6 +196,9 @@ export default function AdminTable({ parents, students }: Props) {
                       {student.name ?? <span className="text-gray-400 italic">未设置</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-500">{student.email}</td>
+                    <td className="px-4 py-3">
+                      <RoleSelect user={student} />
+                    </td>
                     <td className="px-4 py-3">
                       {linkedParents.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
