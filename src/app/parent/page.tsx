@@ -21,13 +21,8 @@ export default async function ParentPage() {
 
   const isParent = profile?.role === 'parent'
   const hasLinkedStudent = isParent && !!profile?.linked_student_id
-
-  // Non-parent users: show their own learning report
-  // Parent without linked student: show link form or pending state
-  // Parent with linked student: show student's report
   const targetUserId = hasLinkedStudent ? profile.linked_student_id! : user.id
 
-  // If parent with no linked student, show setup screen or pending request
   if (isParent && !hasLinkedStudent) {
     const { data: pendingRequest } = await supabase
       .from('parent_link_requests')
@@ -53,7 +48,6 @@ export default async function ParentPage() {
             <h1 className="text-2xl font-bold text-gray-800 chinese-text">家长报告</h1>
             <p className="text-gray-400 text-sm mt-1">关联孩子的账户后查看学习情况</p>
           </div>
-
           {pendingRequest ? (
             <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col gap-4">
               <div className="text-center">
@@ -77,7 +71,9 @@ export default async function ParentPage() {
     )
   }
 
-  const [vocabRes, sessionsRes, studentProfileRes] = await Promise.all([
+  const today = new Date().toISOString().split('T')[0]
+
+  const [vocabRes, sessionsRes, studentProfileRes, todayRes, streakRes, masteryRes] = await Promise.all([
     supabase
       .from('user_vocab_progress')
       .select('*, vocabulary (*)')
@@ -96,13 +92,62 @@ export default async function ParentPage() {
       .select('name')
       .eq('id', targetUserId)
       .maybeSingle(),
+    supabase
+      .from('daily_sessions')
+      .select('completed, total_questions, correct_questions')
+      .eq('user_id', targetUserId)
+      .eq('session_date', today)
+      .maybeSingle(),
+    supabase
+      .from('daily_sessions')
+      .select('session_date')
+      .eq('user_id', targetUserId)
+      .eq('completed', true)
+      .order('session_date', { ascending: false })
+      .limit(30),
+    supabase
+      .from('user_vocab_progress')
+      .select('mastery_level')
+      .eq('user_id', targetUserId),
   ])
 
   const weakWords = (vocabRes.data ?? []) as UserVocabProgress[]
   const sessions = sessionsRes.data ?? []
   const studentName = studentProfileRes.data?.name ?? '学生'
 
-  // 7-day completion summary
+  // Today
+  const todaySession = todayRes.data
+  const todayCompleted = todaySession?.completed ?? false
+  const todayAccuracy = todaySession && todaySession.total_questions > 0
+    ? Math.round((todaySession.correct_questions / todaySession.total_questions) * 100)
+    : null
+
+  // Streak
+  let streak = 0
+  const completedSessions = streakRes.data ?? []
+  if (completedSessions.length > 0) {
+    const checkDate = new Date()
+    checkDate.setHours(0, 0, 0, 0)
+    for (const s of completedSessions) {
+      const sessionDay = new Date(s.session_date)
+      sessionDay.setHours(0, 0, 0, 0)
+      const diff = Math.round((checkDate.getTime() - sessionDay.getTime()) / (1000 * 60 * 60 * 24))
+      if (diff === 0 || diff === 1) { streak++; checkDate.setTime(sessionDay.getTime()) }
+      else break
+    }
+  }
+
+  // Mastery breakdown
+  const allVocab = masteryRes.data ?? []
+  const masteryCount = {
+    new:       allVocab.filter(v => v.mastery_level === 'new').length,
+    weak:      allVocab.filter(v => v.mastery_level === 'weak').length,
+    improving: allVocab.filter(v => v.mastery_level === 'improving').length,
+    mastered:  allVocab.filter(v => v.mastery_level === 'mastered').length,
+  }
+  const totalVocab = allVocab.length
+
+  // 7-day grid
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
     d.setDate(d.getDate() - (6 - i))
@@ -118,15 +163,23 @@ export default async function ParentPage() {
   })
 
   const completedThisWeek = last7.filter(d => d.completed).length
-  const avgAccuracy = last7
-    .filter(d => d.accuracy !== null)
+  const avgAccuracy = last7.filter(d => d.accuracy !== null)
     .reduce((sum, d, _, arr) => sum + (d.accuracy ?? 0) / arr.length, 0)
+
+  const masteryBars: { label: string; count: number; color: string; bg: string }[] = [
+    { label: '新词',   count: masteryCount.new,       color: 'bg-gray-400',    bg: 'bg-gray-100' },
+    { label: '较弱',   count: masteryCount.weak,      color: 'bg-red-400',     bg: 'bg-red-50'   },
+    { label: '进步中', count: masteryCount.improving,  color: 'bg-amber-400',   bg: 'bg-amber-50' },
+    { label: '已掌握', count: masteryCount.mastered,   color: 'bg-emerald-500', bg: 'bg-emerald-50' },
+  ]
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <NavBar />
 
       <main className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-6">
+
+        {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 chinese-text">
@@ -136,28 +189,96 @@ export default async function ParentPage() {
               {hasLinkedStudent ? `${studentName} 的学习情况` : '我的学习情况'}
             </p>
           </div>
-          {hasLinkedStudent && (
-            <UnlinkStudentButton studentName={studentName} />
+          {hasLinkedStudent && <UnlinkStudentButton studentName={studentName} />}
+        </div>
+
+        {/* Today's status */}
+        <div className={`rounded-2xl p-5 border shadow-sm ${
+          todayCompleted ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-gray-100'
+        }`}>
+          <h2 className="font-semibold text-gray-700 text-sm mb-3">今日状态</h2>
+          {todayCompleted ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">✅</span>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-800 chinese-text">今天的任务已完成</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">
+                    共 {todaySession?.total_questions} 题
+                  </p>
+                </div>
+              </div>
+              {todayAccuracy !== null && (
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-emerald-600">{todayAccuracy}%</div>
+                  <div className="text-xs text-emerald-500 mt-0.5">正确率</div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-gray-400">
+              <span className="text-2xl">📋</span>
+              <p className="text-sm chinese-text">今天还没有完成任务</p>
+            </div>
           )}
         </div>
 
-        {/* Weekly summary */}
+        {/* Overall stats */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            {
+              icon: '🔥',
+              value: streak,
+              unit: '天',
+              label: '连续学习',
+              color: streak >= 3 ? 'text-amber-600' : 'text-gray-600',
+            },
+            {
+              icon: '🏆',
+              value: masteryCount.mastered,
+              unit: '个',
+              label: '已掌握词语',
+              color: 'text-emerald-600',
+            },
+            {
+              icon: '📚',
+              value: totalVocab - masteryCount.mastered,
+              unit: '个',
+              label: '待学习词语',
+              color: 'text-brand-600',
+            },
+          ].map(stat => (
+            <div key={stat.label} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-center">
+              <div className="text-xl mb-1">{stat.icon}</div>
+              <div className={`text-2xl font-bold ${stat.color}`}>
+                {stat.value}
+                <span className="text-sm font-normal ml-0.5">{stat.unit}</span>
+              </div>
+              <div className="text-xs text-gray-400 mt-1 leading-tight">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Weekly summary with per-day accuracy */}
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <h2 className="font-semibold text-gray-700 text-sm mb-4">本周完成情况</h2>
           <div className="flex justify-between mb-4">
             {last7.map((day, i) => (
               <div key={i} className="flex flex-col items-center gap-1">
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    day.completed
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-gray-100 text-gray-300'
-                  }`}
-                >
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-semibold ${
+                  day.completed ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-300'
+                }`}>
                   {day.completed ? '✓' : '—'}
                 </div>
                 <span className="text-xs text-gray-400">
                   {day.date.toLocaleDateString('zh-CN', { weekday: 'short' }).replace('周', '')}
+                </span>
+                <span className={`text-xs font-medium ${
+                  day.accuracy === null ? 'text-gray-200' :
+                  day.accuracy >= 80 ? 'text-emerald-500' :
+                  day.accuracy >= 60 ? 'text-amber-500' : 'text-red-400'
+                }`}>
+                  {day.accuracy !== null ? `${day.accuracy}%` : '—'}
                 </span>
               </div>
             ))}
@@ -176,6 +297,41 @@ export default async function ParentPage() {
             </div>
           </div>
         </div>
+
+        {/* Mastery breakdown */}
+        {totalVocab > 0 && (
+          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <h2 className="font-semibold text-gray-700 text-sm mb-4">词语掌握分布</h2>
+
+            {/* Stacked bar */}
+            <div className="flex rounded-full overflow-hidden h-3 mb-4">
+              {masteryBars.map(bar =>
+                bar.count > 0 ? (
+                  <div
+                    key={bar.label}
+                    className={`${bar.color} transition-all`}
+                    style={{ width: `${(bar.count / totalVocab) * 100}%` }}
+                  />
+                ) : null
+              )}
+            </div>
+
+            {/* Legend */}
+            <div className="grid grid-cols-2 gap-2">
+              {masteryBars.map(bar => (
+                <div key={bar.label} className={`flex items-center justify-between rounded-xl px-3 py-2 ${bar.bg}`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${bar.color}`} />
+                    <span className="text-xs text-gray-600 chinese-text">{bar.label}</span>
+                  </div>
+                  <span className="text-sm font-bold text-gray-700">{bar.count}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-gray-400 text-center mt-3">共接触 {totalVocab} 个词语</p>
+          </div>
+        )}
 
         {/* Top weak words */}
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
@@ -223,7 +379,7 @@ export default async function ParentPage() {
           )}
         </div>
 
-        {/* Repeated mistakes highlight */}
+        {/* Repeated mistakes */}
         {weakWords.filter(w => w.mistake_count >= 3).length > 0 && (
           <div className="bg-red-50 rounded-2xl p-5 border border-red-100">
             <h2 className="font-semibold text-red-700 text-sm mb-3 flex items-center gap-1.5">
