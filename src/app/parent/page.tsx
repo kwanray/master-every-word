@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import NavBar from '@/components/NavBar'
 import MasteryBadge from '@/components/MasteryBadge'
+import LinkStudentForm from '@/components/LinkStudentForm'
+import UnlinkStudentButton from '@/components/UnlinkStudentButton'
 import { UserVocabProgress } from '@/types'
 
 export default async function ParentPage() {
@@ -16,10 +18,29 @@ export default async function ParentPage() {
     .eq('id', user.id)
     .maybeSingle()
 
-  // Determine which user_id to show data for
-  const targetUserId = profile?.role === 'parent' && profile?.linked_student_id
-    ? profile.linked_student_id
-    : user.id
+  const isParent = profile?.role === 'parent'
+  const hasLinkedStudent = isParent && !!profile?.linked_student_id
+
+  // Non-parent users: show their own learning report
+  // Parent without linked student: show link form
+  // Parent with linked student: show student's report
+  const targetUserId = hasLinkedStudent ? profile.linked_student_id! : user.id
+
+  // If parent with no linked student, show setup screen
+  if (isParent && !hasLinkedStudent) {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-24">
+        <NavBar />
+        <main className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 chinese-text">家长报告</h1>
+            <p className="text-gray-400 text-sm mt-1">关联孩子的账户后查看学习情况</p>
+          </div>
+          <LinkStudentForm />
+        </main>
+      </div>
+    )
+  }
 
   const [vocabRes, sessionsRes, studentProfileRes] = await Promise.all([
     supabase
@@ -46,8 +67,6 @@ export default async function ParentPage() {
   const sessions = sessionsRes.data ?? []
   const studentName = studentProfileRes.data?.name ?? '学生'
 
-  const isParentView = profile?.role === 'parent' && profile?.linked_student_id
-
   // 7-day completion summary
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
@@ -73,13 +92,18 @@ export default async function ParentPage() {
       <NavBar />
 
       <main className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 chinese-text">
-            {isParentView ? '家长报告' : '学习报告'}
-          </h1>
-          <p className="text-gray-400 text-sm mt-1">
-            {isParentView ? `${studentName} 的学习情况` : '我的学习情况'}
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 chinese-text">
+              {hasLinkedStudent ? '家长报告' : '学习报告'}
+            </h1>
+            <p className="text-gray-400 text-sm mt-1">
+              {hasLinkedStudent ? `${studentName} 的学习情况` : '我的学习情况'}
+            </p>
+          </div>
+          {hasLinkedStudent && (
+            <UnlinkStudentButton studentName={studentName} />
+          )}
         </div>
 
         {/* Weekly summary */}
@@ -131,7 +155,7 @@ export default async function ParentPage() {
             <div className="text-center py-6">
               <div className="text-3xl mb-2">🎉</div>
               <p className="text-gray-400 text-sm chinese-text">
-                {isParentView ? `${studentName}` : '你'}还没有答错的词语
+                {hasLinkedStudent ? `${studentName}` : '你'}还没有答错的词语
               </p>
             </div>
           ) : (
@@ -185,10 +209,10 @@ export default async function ParentPage() {
           </div>
         )}
 
-        {!isParentView && (
+        {!hasLinkedStudent && !isParent && (
           <div className="bg-brand-50 rounded-xl p-4 border border-brand-100">
             <p className="text-brand-700 text-xs text-center">
-              💡 家长可以用自己的账户登录并在账户中关联学生，查看详细报告
+              💡 家长可以用自己的账户登录并关联学生，查看详细报告
             </p>
           </div>
         )}
