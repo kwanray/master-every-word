@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import NavBar from '@/components/NavBar'
 import DashboardCard from '@/components/DashboardCard'
 import ProgressBar from '@/components/ProgressBar'
+import LinkRequestNotification from '@/components/LinkRequestNotification'
 
 export default async function DashboardPage() {
   const supabase = createClient()
@@ -14,7 +15,7 @@ export default async function DashboardPage() {
   const today = new Date().toISOString().split('T')[0]
 
   // Fetch data in parallel
-  const [profileRes, sessionRes, masteredRes, weakRes, streakRes] = await Promise.all([
+  const [profileRes, sessionRes, masteredRes, weakRes, streakRes, linkRequestsRes] = await Promise.all([
     supabase.from('profiles').select('name, role').eq('id', user.id).maybeSingle(),
     supabase
       .from('daily_sessions')
@@ -39,11 +40,20 @@ export default async function DashboardPage() {
       .eq('completed', true)
       .order('session_date', { ascending: false })
       .limit(30),
+    supabase
+      .from('parent_link_requests')
+      .select('id, profiles!parent_id(name)')
+      .eq('student_id', user.id),
   ])
 
   const profile = profileRes.data
 
   if (profile?.role === 'parent') redirect('/parent')
+
+  const linkRequests = (linkRequestsRes.data ?? []) as {
+    id: string
+    profiles: { name: string } | null
+  }[]
 
   const todaySession = sessionRes.data
   const masteredCount = masteredRes.count ?? 0
@@ -79,6 +89,15 @@ export default async function DashboardPage() {
       <NavBar />
 
       <main className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-6">
+        {/* Parent link requests */}
+        {linkRequests.map(req => (
+          <LinkRequestNotification
+            key={req.id}
+            requestId={req.id}
+            parentName={req.profiles?.name ?? '家长'}
+          />
+        ))}
+
         {/* Greeting */}
         <div>
           <h1 className="text-2xl font-bold text-gray-800 chinese-text">
