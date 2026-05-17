@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import NavBar from '@/components/NavBar'
-import MasteryBadge from '@/components/MasteryBadge'
+import MasteryWordList from '@/components/MasteryWordList'
 import LinkStudentForm from '@/components/LinkStudentForm'
 import UnlinkStudentButton from '@/components/UnlinkStudentButton'
 import CancelRequestButton from '@/components/CancelRequestButton'
@@ -78,9 +78,7 @@ export default async function ParentPage() {
       .from('user_vocab_progress')
       .select('*, vocabulary (*)')
       .eq('user_id', targetUserId)
-      .neq('mastery_level', 'mastered')
-      .order('mistake_count', { ascending: false })
-      .limit(20),
+      .order('mistake_count', { ascending: false }),
     supabase
       .from('daily_sessions')
       .select('session_date, completed, total_questions, correct_questions')
@@ -166,12 +164,6 @@ export default async function ParentPage() {
   const avgAccuracy = last7.filter(d => d.accuracy !== null)
     .reduce((sum, d, _, arr) => sum + (d.accuracy ?? 0) / arr.length, 0)
 
-  const masteryBars: { label: string; count: number; color: string; bg: string }[] = [
-    { label: '新词',   count: masteryCount.new,       color: 'bg-gray-400',    bg: 'bg-gray-100' },
-    { label: '较弱',   count: masteryCount.weak,      color: 'bg-red-400',     bg: 'bg-red-50'   },
-    { label: '进步中', count: masteryCount.improving,  color: 'bg-amber-400',   bg: 'bg-amber-50' },
-    { label: '已掌握', count: masteryCount.mastered,   color: 'bg-emerald-500', bg: 'bg-emerald-50' },
-  ]
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -298,106 +290,13 @@ export default async function ParentPage() {
           </div>
         </div>
 
-        {/* Mastery breakdown */}
+        {/* Mastery breakdown + word lists (interactive) */}
         {totalVocab > 0 && (
-          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-            <h2 className="font-semibold text-gray-700 text-sm mb-4">词语掌握分布</h2>
-
-            {/* Stacked bar */}
-            <div className="flex rounded-full overflow-hidden h-3 mb-4">
-              {masteryBars.map(bar =>
-                bar.count > 0 ? (
-                  <div
-                    key={bar.label}
-                    className={`${bar.color} transition-all`}
-                    style={{ width: `${(bar.count / totalVocab) * 100}%` }}
-                  />
-                ) : null
-              )}
-            </div>
-
-            {/* Legend */}
-            <div className="grid grid-cols-2 gap-2">
-              {masteryBars.map(bar => (
-                <div key={bar.label} className={`flex items-center justify-between rounded-xl px-3 py-2 ${bar.bg}`}>
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${bar.color}`} />
-                    <span className="text-xs text-gray-600 chinese-text">{bar.label}</span>
-                  </div>
-                  <span className="text-sm font-bold text-gray-700">{bar.count}</span>
-                </div>
-              ))}
-            </div>
-
-            <p className="text-xs text-gray-400 text-center mt-3">共接触 {totalVocab} 个词语</p>
-          </div>
-        )}
-
-        {/* Top weak words */}
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-          <h2 className="font-semibold text-gray-700 text-sm mb-4">
-            需要关注的词语
-            {weakWords.length > 0 && (
-              <span className="ml-2 text-xs text-gray-400">（共 {weakWords.length} 个）</span>
-            )}
-          </h2>
-
-          {weakWords.length === 0 ? (
-            <div className="text-center py-6">
-              <div className="text-3xl mb-2">🎉</div>
-              <p className="text-gray-400 text-sm chinese-text">
-                {hasLinkedStudent ? `${studentName}` : '你'}还没有答错的词语
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {weakWords.map(wp => {
-                const vocab = wp.vocabulary
-                if (!vocab) return null
-                return (
-                  <div
-                    key={wp.id}
-                    className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-bold text-gray-800 chinese-text">{vocab.word}</span>
-                        {vocab.pinyin && (
-                          <span className="text-xs text-gray-400">{vocab.pinyin}</span>
-                        )}
-                      </div>
-                      {vocab.meaning_zh && (
-                        <p className="text-xs text-gray-500 chinese-text mt-0.5 truncate">{vocab.meaning_zh}</p>
-                      )}
-                      <p className="text-xs text-red-400 mt-1">答错 {wp.mistake_count} 次</p>
-                    </div>
-                    <MasteryBadge level={wp.mastery_level} size="sm" />
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Repeated mistakes */}
-        {weakWords.filter(w => w.mistake_count >= 3).length > 0 && (
-          <div className="bg-red-50 rounded-2xl p-5 border border-red-100">
-            <h2 className="font-semibold text-red-700 text-sm mb-3 flex items-center gap-1.5">
-              <span>⚠️</span> 反复答错的词语
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {weakWords
-                .filter(w => w.mistake_count >= 3)
-                .map(wp => (
-                  <span
-                    key={wp.id}
-                    className="bg-white border border-red-200 text-red-700 text-sm px-3 py-1.5 rounded-full font-medium chinese-text"
-                  >
-                    {wp.vocabulary?.word} ({wp.mistake_count}×)
-                  </span>
-                ))}
-            </div>
-          </div>
+          <MasteryWordList
+            allWords={weakWords}
+            studentName={studentName}
+            hasLinkedStudent={hasLinkedStudent}
+          />
         )}
 
         {!hasLinkedStudent && !isParent && (
